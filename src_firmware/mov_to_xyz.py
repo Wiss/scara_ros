@@ -1,8 +1,8 @@
 # !/usr/bin/python3
 
 from __future__ import print_function
-import odrive
-from odrive.enums import *
+#import odrive
+#from odrive.enums import *
 # from odrive.utils import start_liveplotter
 import time
 import math
@@ -39,46 +39,32 @@ print(arm.angles)
 print('--------o--------')
 
 def mov_xy(x, y, x_old, y_old, ang_old, relative = 1):
-    print('moving x to ' + str(x) + '[mm] and y to ' + str(y) + '[mm]')
-    if relative == 0:
-        # from x, y to angle
-        arm.ee = [x, y, 0.]  # entrega IK del brazo
-        h_ang, c_ang = arm.angles - ang_old
-        print('angulos a mover')
-        print(h_ang, c_ang)
-        # from angle to counts
-        h_counts = h_ang * cuentas_h_ang
-        c_counts = c_ang * cuentas_c_ang
-        odrv_h.axis0.controller.pos_setpoint = (odrv_h.axis0.encoder.pos_estimate + h_counts)
-        odrv_cz.axis1.controller.pos_setpoint = (odrv_cz.axis1.encoder.pos_estimate + c_counts)
-    else:
+    if relative == 1:
+        print('moving x incremental ' + str(x) + '[mm] and y incremental ' + str(y) + '[mm]')
         # from x, y to angle
         x = x + x_old
         y = y + y_old
-        arm.ee = [x, y, 0.]  # entrega IK del brazo
-        h_ang, c_ang = arm.angles - ang_old
-        print('angulos a mover')
-        print(h_ang, c_ang)
-        # from angle to counts
-        h_counts = h_ang * cuentas_h_ang
-        c_counts = c_ang * cuentas_c_ang
-        odrv_h.axis0.controller.pos_setpoint = (odrv_h.axis0.encoder.pos_estimate + h_counts)
-        odrv_cz.axis1.controller.pos_setpoint = (odrv_cz.axis1.encoder.pos_estimate + c_counts)
+    else:
+        print('moving x to ' + str(x) + '[mm] and y to ' + str(y) + '[mm]')
+    arm.ee = [x, y, 0.]  # entrega IK del brazo
+    h_ang, c_ang = arm.angles - ang_old
+    print('angulos a mover')
+    print(h_ang, c_ang)
+    # from angle to counts
+    h_counts = h_ang * cuentas_h_ang
+    c_counts = c_ang * cuentas_c_ang
+    #odrv_h.axis0.controller.pos_setpoint = (odrv_h.axis0.encoder.pos_estimate + h_counts)
+    #odrv_cz.axis1.controller.pos_setpoint = (odrv_cz.axis1.encoder.pos_estimate + c_counts)
     return [x, y]
 
 def mov_z(z, z_old, relative = 1):
-    print('moving z to ' + str(z) + '[mm]')
-    if relative == 0:
-        z_delta = z - z_old
-        print('z a mover')
-        print(z_delta)
-        z_counts = z_delta * (vueltas_z_mm) * (cuentas_z_vuelta)
-        odrv_cz.axis0.controller.pos_setpoint = (z_counts)
+    if relative == 1:
+        print('moving z incremental ' + str(z) + '[mm]')
     else:
-        print('z a mover')
-        print(z)
-        z_counts = z * (vueltas_z_mm) * (cuentas_z_vuelta)
-        odrv_cz.axis0.controller.pos_setpoint = (odrv_cz.axis0.encoder.pos_estimate + z_counts)
+        print('moving z to ' + str(z) + '[mm]')
+        z = z - z_old
+    z_counts = z * (vueltas_z_mm) * (cuentas_z_vuelta)
+    #odrv_cz.axis0.controller.pos_setpoint = (odrv_cz.axis0.encoder.pos_estimate + z_counts)
     return z
 
 
