@@ -7,6 +7,22 @@ from __future__ import print_function
 import time
 import math
 import tinyik
+# Raspy
+import signal
+import sys
+import time
+import RPi.GPIO as GPIO
+
+# LS Interrupt
+LS_h_l =
+LS_h_r =
+LS_rc_l =
+LS_rc_r =
+LS_z_u =
+LS_z_d =
+LS_puntita =
+LS_GPIO = [LS_h_l, LS_h_d, LS_rc_l, LS_rc_d, LS_z_u, LS_z_d, LS_puntita] # incluir todos los LS
+LS_stop = False
 
 '''Algorithm for controlling SCARA robot. 
 from cartesian (x,y,z) to (x',y',z')
@@ -72,45 +88,97 @@ def mov_all(x, y, z, x_old, y_old, z_old, ang_old, relative = 1):
     #print(mov_xy(x, y, x_old, y_old, relative), mov_z(z, z_old, relative))
     return [mov_xy(x, y, x_old, y_old, ang_old,relative), mov_z(z, z_old, relative)]
 
-# position
-while True:
-    # update variables for next movement
-    x_old = x
-    y_old = y
-    z_old = z
-    ang_old = arm.angles
-    print('angulo antiguo updated')
-    print(ang_old)
-    print('x,y,z antiguo updated')
-    print([x_old, y_old, z_old])
-    mov_type = input("movimiento relativo (1) o absoluto (0)? ")
-    mov_type = int(mov_type)
-    if mov_type == 1:
-        print("movimiento relativo")
-    else:
-        print("movimiento absoluto")
-    x = input("Dude, a que valor de x me muevo [mm]? ")
-    x = float(x)
-    print("Ir a x = ", x)
-    y = input("Dude, a que valor de y me muevo[mm]? ")
-    y = float(y)
-    print("Ir a y = ", y)
-    z = input("Dude a que valor de z me muevo[mm]? ")
-    z = float(z)
-    print("Ir a z = ", z)
-    [[x, y], z] = mov_all(x, y, z, x_old, y_old, z_old, ang_old,mov_type)
-    print('valor de x luego de aplicar mov_all')
-    print(x)
-    print('valor de y luego de aplicar mov_all')
-    print(y)
-    print('valor de z luego de aplicar mov_all')
-    print(z)
-    #if alarm == 1: # define alarm = 1 when one LS is active
-    #    break
-    print('-------o--------')
+# Interrupt code
+def signal_handler(sig, frame):
+    GPIO.cleanup()
+    sys.exit(0)
 
-# trayectory
-''' # set desired (x,y,z) EE position
-    x = np.arange(40, 75, 35)
-    y = np.arange(10, 30, 50)
-    z = np.zeros(len(x))'''
+def LS_stop_callback(channel):
+    global stop
+    stop = 1
+
+if __name__ == '__main__':
+    GPIO.setmode(GPIO.BCM)
+
+    GPIO.setup(LS_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP) # VERIFICAR
+    for n in range(0, len(LS_GPIO)):
+        GPIO.add_event_detect(LS_GPIO[n], GPIO.RISING,
+                          callback=LS_stop_callback, bouncetime=100)  # VERIFICAR bouncetime
+
+    signal.signal(signal.SIGINT, signal_handler)
+    # moving position
+    while True:
+        if not stop:
+            # update variables for next movement
+            x_old = x
+            y_old = y
+            z_old = z
+            ang_old = arm.angles
+            print('angulo antiguo updated')
+            print(ang_old)
+            print('x,y,z antiguo updated')
+            print([x_old, y_old, z_old])
+            mov_type = input("movimiento relativo (1) o absoluto (0)? ")
+            mov_type = int(mov_type)
+            if mov_type == 1:
+                print("movimiento relativo")
+            else:
+                print("movimiento absoluto")
+            x = input("Dude, a que valor de x me muevo [mm]? ")
+            x = float(x)
+            print("Ir a x = ", x)
+            y = input("Dude, a que valor de y me muevo[mm]? ")
+            y = float(y)
+            print("Ir a y = ", y)
+            z = input("Dude a que valor de z me muevo[mm]? ")
+            z = float(z)
+            print("Ir a z = ", z)
+            [[x, y], z] = mov_all(x, y, z, x_old, y_old, z_old, ang_old,mov_type)
+            print('valor de x luego de aplicar mov_all')
+            print(x)
+            print('valor de y luego de aplicar mov_all')
+            print(y)
+            print('valor de z luego de aplicar mov_all')
+            print(z)
+            #if alarm == 1: # define alarm = 1 when one LS is active
+            #    break
+            print('-------o--------')
+
+        # trayectory
+        ''' # set desired (x,y,z) EE position
+            x = np.arange(40, 75, 35)
+            y = np.arange(10, 30, 50)
+            z = np.zeros(len(x))'''
+
+
+''' Tuning
+Tuning the motor controller is an essential step to unlock the full potential of the ODrive. 
+Tuning allows for the controller to quickly respond to disturbances or changes in the system 
+(such as an external force being applied or a change in the setpoint) without becoming unstable. 
+Correctly setting the three tuning parameters (called gains) ensures that ODrive can control your motors 
+in the most effective way possible. The three values are:
+
+    <axis>.controller.config.pos_gain = 20.0 [(counts/s) / counts]
+    <axis>.controller.config.vel_gain = 5.0 / 10000.0 [A/(counts/s)]
+    <axis>.controller.config.vel_integrator_gain = 10.0 / 10000.0 [A/((counts/s) * s)]
+
+An upcoming feature will enable automatic tuning. Until then, here is a rough tuning procedure:
+
+    Set vel_integrator_gain gain to 0
+    Make sure you have a stable system. If it is not, decrease all gains until you have one.
+    Increase vel_gain by around 30% per iteration until the motor exhibits some vibration.
+    Back down vel_gain to 50% of the vibrating value.
+    Increase pos_gain by around 30% per iteration until you see some overshoot.
+    Back down pos_gain until you do not have overshoot anymore.
+    The integrator can be set to 0.5 * bandwidth * vel_gain, where bandwidth is the overall 
+    resulting tracking bandwidth of your system. Say your tuning made it track commands with a 
+    settling time of 100ms (the time from when the setpoint changes to when the system arrives 
+    at the new setpoint); this means the bandwidth was 1/(100ms) = 1/(0.1s) = 10hz. 
+    In this case you should set the vel_integrator_gain = 0.5 * 10 * vel_gain.
+
+The liveplotter tool can be immensely helpful in dialing in these values. 
+To display a graph that plots the position setpoint vs the measured position value run the 
+following in the ODrive tool:
+
+start_liveplotter(lambda:[odrv0.axis0.encoder.pos_estimate, odrv0.axis0.controller.pos_setpoint])'''
+
